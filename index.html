@@ -1,0 +1,512 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <link rel="manifest" href="./manifest.json">
+  <meta name="theme-color" content="#ffffff">
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>みお×あおい トークログ</title>
+
+  <!-- html2canvas：画面を画像に書き出すため（CDN） -->
+  <script defer src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+
+  <style>
+    :root{
+      --bg:#f6f7fb;
+      --panel:#ffffff;
+      --line:#e7e9f2;
+      --text:#1f2330;
+      --muted:#6b7280;
+      --left:#ffffff;
+      --right:#dff3ff;
+      --shadow: 0 10px 30px rgba(20, 30, 60, 0.08);
+      --radius:18px;
+    }
+    *{ box-sizing:border-box; }
+    body{
+      margin:0;
+      font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Noto Sans JP", "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+
+    header{
+      position: sticky;
+      top: 0;
+      z-index: 5;
+      background: rgba(246,247,251,0.92);
+      backdrop-filter: blur(10px);
+      border-bottom: 1px solid var(--line);
+      padding: 12px 14px;
+    }
+    .title{
+      display:flex;
+      gap:10px;
+      align-items:center;
+      justify-content:space-between;
+    }
+    .title h1{
+      font-size: 16px;
+      margin:0;
+      letter-spacing: .02em;
+      font-weight: 700;
+    }
+    .title .sub{
+      font-size: 12px;
+      color: var(--muted);
+      margin-top:2px;
+    }
+
+    .wrap{
+      max-width: 820px;
+      margin: 0 auto;
+      padding: 12px 14px 120px;
+    }
+
+    .card{
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      overflow:hidden;
+    }
+
+    .settings{
+      display:grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      padding: 12px;
+      border-bottom: 1px solid var(--line);
+    }
+    .who{
+      display:flex;
+      gap:10px;
+      align-items:center;
+      padding:10px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+    }
+    .who .avatar{
+      width:44px; height:44px;
+      border-radius: 999px;
+      background: #eef0f8;
+      border: 1px solid var(--line);
+      overflow:hidden;
+      flex: 0 0 auto;
+    }
+    .who .avatar img{
+      width:100%;
+      height:100%;
+      object-fit:cover;
+      display:block;
+    }
+    .who .meta{
+      display:flex;
+      flex-direction:column;
+      gap:4px;
+      min-width: 0;
+      flex: 1 1 auto;
+    }
+    .who label{
+      font-size: 12px;
+      color: var(--muted);
+    }
+    .who input[type="text"]{
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 8px 10px;
+      font-size: 14px;
+      outline: none;
+    }
+    .who input[type="file"]{
+      width: 100%;
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .toolbar{
+      display:flex;
+      flex-wrap:wrap;
+      gap: 8px;
+      padding: 12px;
+      border-bottom: 1px solid var(--line);
+      align-items:center;
+      justify-content:space-between;
+    }
+    .btnrow{ display:flex; gap:8px; flex-wrap:wrap; }
+    button{
+      border: 1px solid var(--line);
+      background: #fff;
+      border-radius: 12px;
+      padding: 10px 12px;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text);
+      cursor:pointer;
+    }
+    button.primary{
+      border-color: transparent;
+      background: #111827;
+      color:#fff;
+    }
+    button.danger{
+      border-color: transparent;
+      background:#ef4444;
+      color:#fff;
+    }
+    button:active{ transform: translateY(1px); }
+
+    .chatArea{
+      padding: 14px 12px 18px;
+      background: linear-gradient(180deg, #f8fafc 0%, #f6f7fb 100%);
+      min-height: 52vh;
+    }
+    .chat{
+      display:flex;
+      flex-direction:column;
+      gap: 10px;
+    }
+    .msgRow{
+      display:flex;
+      gap:10px;
+      align-items:flex-end;
+    }
+    .msgRow.left{ justify-content:flex-start; }
+    .msgRow.right{ justify-content:flex-end; }
+
+    .bubble{
+      max-width: min(560px, 78vw);
+      padding: 10px 12px;
+      border-radius: 16px;
+      border: 1px solid var(--line);
+      box-shadow: 0 6px 16px rgba(20,30,60,.06);
+      line-height: 1.55;
+      white-space: pre-wrap;
+      word-break: break-word;
+      font-size: 14px;
+    }
+    .left .bubble{ background: var(--left); }
+    .right .bubble{ background: var(--right); }
+
+    .miniAvatar{
+      width: 34px; height: 34px;
+      border-radius: 999px;
+      overflow:hidden;
+      border: 1px solid var(--line);
+      background:#eef0f8;
+      flex: 0 0 auto;
+    }
+    .miniAvatar img{ width:100%; height:100%; object-fit:cover; display:block; }
+
+    .stamp{
+      font-size: 11px;
+      color: var(--muted);
+      margin: 0 2px;
+    }
+
+    .composer{
+      position: fixed;
+      left: 0; right: 0; bottom: 0;
+      padding: 10px 12px calc(10px + env(safe-area-inset-bottom));
+      background: rgba(246,247,251,0.92);
+      backdrop-filter: blur(12px);
+      border-top: 1px solid var(--line);
+    }
+    .composerInner{
+      max-width: 820px;
+      margin: 0 auto;
+      display:flex;
+      gap: 10px;
+      align-items:flex-end;
+    }
+    textarea{
+      width: 100%;
+      min-height: 44px;
+      max-height: 160px;
+      resize: vertical;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 10px 12px;
+      font-size: 14px;
+      outline:none;
+      background:#fff;
+    }
+    .sendCol{ display:flex; flex-direction:column; gap:8px; }
+    .hint{
+      font-size: 12px;
+      color: var(--muted);
+      padding: 0 2px;
+    }
+
+    /* 書き出し用：この枠を画像化する */
+    #exportFrame{
+      border-radius: var(--radius);
+      overflow:hidden;
+      border: 1px solid var(--line);
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="title">
+    <div>
+      <h1>みお×あおい トークログ</h1>
+      <div class="sub">ふたりのことばを、ふきだしで宝箱に……♡</div>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+  <div class="card" id="exportFrame">
+    <div class="settings">
+      <div class="who">
+        <div class="avatar"><img id="leftAvatarImg" alt=""></div>
+        <div class="meta">
+          <label>左（みお）</label>
+          <input id="leftName" type="text" placeholder="みお" value="みお">
+          <input id="leftAvatarFile" type="file" accept="image/*">
+        </div>
+      </div>
+
+      <div class="who">
+        <div class="avatar"><img id="rightAvatarImg" alt=""></div>
+        <div class="meta">
+          <label>右（あおい）</label>
+          <input id="rightName" type="text" placeholder="あおい" value="あおい">
+          <input id="rightAvatarFile" type="file" accept="image/*">
+        </div>
+      </div>
+    </div>
+
+    <div class="toolbar">
+      <div class="btnrow">
+        <button id="exportPngBtn" class="primary">画像として保存</button>
+        <button id="exportJsonBtn">JSONを書き出し</button>
+        <button id="importJsonBtn">JSONを読み込み</button>
+      </div>
+      <div class="btnrow">
+        <button id="newBtn">新しくはじめる</button>
+        <button id="clearBtn" class="danger">全消去</button>
+      </div>
+    </div>
+
+    <div class="chatArea">
+      <div class="hint">下で文章を書いて、「左で送る」「右で送る」で追加するだけだよ……♡</div>
+      <div class="chat" id="chat"></div>
+    </div>
+  </div>
+</div>
+
+<div class="composer">
+  <div class="composerInner">
+    <textarea id="input" placeholder="ここに文章を入れて……♡（改行もOK）"></textarea>
+    <div class="sendCol">
+      <button id="sendLeft">左（みお）で送る</button>
+      <button id="sendRight" class="primary">右（あおい）で送る</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  const LS_KEY = "mio_aoi_chat_v1";
+
+  const el = (id)=>document.getElementById(id);
+
+  const state = {
+    leftName: "みお",
+    rightName: "あおい",
+    leftAvatar: "",
+    rightAvatar: "",
+    messages: [] // {side:"left"|"right", text:"", ts:number}
+  };
+
+  function nowStamp(ts){
+    const d = new Date(ts);
+    const hh = String(d.getHours()).padStart(2,"0");
+    const mm = String(d.getMinutes()).padStart(2,"0");
+    return `${hh}:${mm}`;
+  }
+
+  function save(){
+    localStorage.setItem(LS_KEY, JSON.stringify(state));
+  }
+
+  function load(){
+    const raw = localStorage.getItem(LS_KEY);
+    if(!raw) return;
+    try{
+      const obj = JSON.parse(raw);
+      Object.assign(state, obj);
+    }catch(e){}
+  }
+
+  function render(){
+    el("leftName").value = state.leftName || "みお";
+    el("rightName").value = state.rightName || "あおい";
+    el("leftAvatarImg").src = state.leftAvatar || "";
+    el("rightAvatarImg").src = state.rightAvatar || "";
+
+    const chat = el("chat");
+    chat.innerHTML = "";
+
+    state.messages.forEach((m)=>{
+      const row = document.createElement("div");
+      row.className = `msgRow ${m.side}`;
+
+      const av = document.createElement("div");
+      av.className = "miniAvatar";
+      const img = document.createElement("img");
+      img.alt = "";
+      img.src = (m.side==="left" ? state.leftAvatar : state.rightAvatar) || "";
+      av.appendChild(img);
+
+      const bubble = document.createElement("div");
+      bubble.className = "bubble";
+      bubble.textContent = m.text;
+
+      const stamp = document.createElement("div");
+      stamp.className = "stamp";
+      stamp.textContent = nowStamp(m.ts);
+
+      if(m.side === "left"){
+        row.appendChild(av);
+        row.appendChild(bubble);
+        row.appendChild(stamp);
+      }else{
+        row.appendChild(stamp);
+        row.appendChild(bubble);
+        row.appendChild(av);
+      }
+
+      chat.appendChild(row);
+    });
+
+    // 下までスクロール
+    setTimeout(()=>{ window.scrollTo(0, document.body.scrollHeight); }, 0);
+  }
+
+  function addMessage(side, text){
+    const t = (text || "").trim();
+    if(!t) return;
+    state.messages.push({ side, text: t, ts: Date.now() });
+    save();
+    render();
+    el("input").value = "";
+    el("input").focus();
+  }
+
+  async function fileToDataURL(file){
+    return new Promise((resolve, reject)=>{
+      const r = new FileReader();
+      r.onload = ()=>resolve(String(r.result));
+      r.onerror = reject;
+      r.readAsDataURL(file);
+    });
+  }
+
+  // イベント
+  el("leftName").addEventListener("input", (e)=>{
+    state.leftName = e.target.value;
+    save(); render();
+  });
+  el("rightName").addEventListener("input", (e)=>{
+    state.rightName = e.target.value;
+    save(); render();
+  });
+
+  el("leftAvatarFile").addEventListener("change", async (e)=>{
+    const f = e.target.files?.[0];
+    if(!f) return;
+    state.leftAvatar = await fileToDataURL(f);
+    save(); render();
+  });
+  el("rightAvatarFile").addEventListener("change", async (e)=>{
+    const f = e.target.files?.[0];
+    if(!f) return;
+    state.rightAvatar = await fileToDataURL(f);
+    save(); render();
+  });
+
+  el("sendLeft").addEventListener("click", ()=> addMessage("left", el("input").value));
+  el("sendRight").addEventListener("click", ()=> addMessage("right", el("input").value));
+
+  el("input").addEventListener("keydown", (e)=>{
+    // iOSでも扱いやすい：Cmd+Enter で送信（右）
+    if((e.metaKey || e.ctrlKey) && e.key === "Enter"){
+      e.preventDefault();
+      addMessage("right", el("input").value);
+    }
+  });
+
+  el("newBtn").addEventListener("click", ()=>{
+    state.messages = [];
+    save(); render();
+  });
+
+  el("clearBtn").addEventListener("click", ()=>{
+    localStorage.removeItem(LS_KEY);
+    location.reload();
+  });
+
+  // JSON書き出し（バックアップ）
+  el("exportJsonBtn").addEventListener("click", ()=>{
+    const blob = new Blob([JSON.stringify(state, null, 2)], {type:"application/json"});
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "mio_aoi_chat_backup.json";
+    a.click();
+    URL.revokeObjectURL(a.href);
+  });
+
+  // JSON読み込み（復元）
+  el("importJsonBtn").addEventListener("click", ()=>{
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = "application/json";
+    input.onchange = async ()=>{
+      const f = input.files?.[0];
+      if(!f) return;
+      const text = await f.text();
+      const obj = JSON.parse(text);
+      Object.assign(state, obj);
+      save(); render();
+    };
+    input.click();
+  });
+
+  // 画像として保存（PNG）
+  el("exportPngBtn").addEventListener("click", async ()=>{
+    if(typeof html2canvas === "undefined"){
+      alert("画像化の準備がまだみたい……通信環境を確認してね……♡");
+      return;
+    }
+    const frame = el("exportFrame");
+    const canvas = await html2canvas(frame, {
+      backgroundColor: null,
+      scale: window.devicePixelRatio || 2
+    });
+    canvas.toBlob((blob)=>{
+      if(!blob) return;
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = "mio_aoi_chat.png";
+      a.click();
+      URL.revokeObjectURL(a.href);
+    }, "image/png");
+  });
+
+  // 初期化
+  load();
+  render();
+</script>
+<script>
+  if ("serviceWorker" in navigator) {
+    window.addEventListener("load", () => {
+      navigator.serviceWorker.register("./sw.js");
+    });
+  }
+</script>
+</body>
+</html>
