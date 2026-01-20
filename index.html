@@ -288,6 +288,31 @@ body{
   border-radius: 999px;
   box-shadow: 0 4px 18px rgba(0,0,0,.04);
 }
+
+/* ===== 余白調整：上のアイコン枠が端にくっつかないように ===== */
+
+/* 左右カードを置いてるエリア自体の内側余白を増やす */
+.settings{
+  padding: 16px !important;   /* 12 → 16 */
+  gap: 12px !important;       /* 10 → 12 */
+}
+
+/* 左右それぞれの枠（who）の内側余白を増やす */
+.who{
+  padding: 12px !important;   /* 10 → 12 */
+}
+
+/* アイコンの丸に“外側の余白”を少し足す */
+.who .avatar{
+  margin: 2px !important;     /* 端に当たる感じを消す */
+}
+
+/* ついでに：スマホ幅の時に詰まりすぎないように */
+@media (max-width: 520px){
+  .settings{
+    grid-template-columns: 1fr !important;
+  }
+}
   </style>
 </head>
 <body>
