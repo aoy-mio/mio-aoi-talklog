@@ -613,7 +613,10 @@ body{
       const bubble = document.createElement("div");
       bubble.className = "bubble";
       bubble.textContent = m.text;
-
+      bubble.addEventListener("contextmenu", (e)=>{
+      e.preventDefault();
+      openEditMenu(m.id);  // ←あとで作る関数
+});
       const stamp = document.createElement("div");
       stamp.className = "stamp";
       stamp.textContent = m.timeLabel || nowStamp(m.ts);
@@ -640,7 +643,33 @@ setTimeout(()=>{
   window.scrollBy(0, 40); // ちょい余白ぶん押し下げ♡
 }, 0);
 
+ } // ← renderここで終了！
+
+// ←この直後に置く♡
+function openEditMenu(id){
+  const i = state.messages.findIndex(m => m.id === id);
+  if(i < 0) return;
+
+  const m = state.messages[i];
+
+  const action = prompt("edit なら e / delete なら d を入れてね♡", "e");
+  if(!action) return;
+
+  if(action.toLowerCase() === "e"){
+    const next = prompt("新しい文章を入れてね♡", m.text || "");
+    if(next === null) return;
+    m.text = String(next);
+    save(); render();
+    return;
   }
+
+  if(action.toLowerCase() === "d"){
+    if(confirm("ほんとに削除する……？")){
+      state.messages.splice(i, 1);
+      save(); render();
+    }
+  }
+}
 
   function getTimeLabel(){
     const v = (el("timeOverride")?.value || "").trim();
@@ -656,6 +685,7 @@ setTimeout(()=>{
     if(!t) return;
 
     state.messages.push({
+    id: crypto.randomUUID(),
       side,
       text: t,
       ts: Date.now(),
@@ -856,6 +886,7 @@ datePicker.addEventListener("input", () => {
   if (!dateTouched) return;
 
     state.messages.push({
+      id: crypto.randomUUID(),   // ← これ追加
       type: "dayDivider",
       text: datePicker.value, // YYYY-MM-DD
       ts: Date.now()
