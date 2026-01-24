@@ -820,6 +820,7 @@ window.addEventListener("DOMContentLoaded", () => {
   const bar = el("dateBar");
   const closeBtn = el("dateBarClose");
   const datePicker = el("datePicker");
+let dateTouched = false;
 
   if (!btn || !bar || !closeBtn || !datePicker) {
     // どれが無いかを出す（デバッグ用）
@@ -831,6 +832,7 @@ window.addEventListener("DOMContentLoaded", () => {
   // 「日付を選ぶ」ボタン
   btn.addEventListener("click", () => {
     bar.classList.remove("hidden");
+    dateTouched = false; 
     datePicker.value = "";
 // ここ1行追加♡：タップしやすいように少しだけ視線誘導
   　datePicker.scrollIntoView({ block: "center" });
@@ -844,8 +846,14 @@ window.addEventListener("DOMContentLoaded", () => {
   });
 
   // 日付を選んだら区切りを追加して閉じる
+datePicker.addEventListener("input", () => {
+  dateTouched = true;
+});
   datePicker.addEventListener("change", () => {
     if (!datePicker.value) return;
+
+ // ★スマホ対策：勝手に確定されるchangeを弾く
+  if (!dateTouched) return;
 
     state.messages.push({
       type: "dayDivider",
