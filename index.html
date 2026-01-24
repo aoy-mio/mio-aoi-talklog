@@ -375,6 +375,48 @@ body{
     height: 130px;
   }
 }
+/* ===== スマホで下が縦に伸びすぎ問題を抑える ===== */
+@media (max-width: 520px){
+
+  /* composer全体を縦積み（でも高さは増やしすぎない） */
+  .composerInner{
+    flex-direction: column;
+    gap: 8px;
+    align-items: stretch;
+  }
+
+  /* ★指定時刻：縦→横にして背を低くする */
+  .timePick{
+    flex-direction: row;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;           /* 160pxを無効化して詰められるように */
+  }
+  .timePick label{
+    white-space: nowrap;    /* 「指定時刻（任意）」を1行固定 */
+    margin: 0;
+  }
+  .timePick input{
+    flex: 1 1 auto;         /* 残り幅を全部使う */
+    height: 40px;           /* 背を低く */
+    padding: 8px 10px;
+  }
+
+  /* ★送信ボタン：縦→横にして背を低くする */
+  .sendCol{
+    flex-direction: row;
+    gap: 8px;
+  }
+  .sendCol button{
+    flex: 1 1 0;
+  }
+
+  /* 入力欄もちょい低め */
+  textarea{
+    min-height: 40px;
+    max-height: 120px;
+  }
+}
 
   </style>
 </head>
