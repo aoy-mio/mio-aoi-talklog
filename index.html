@@ -833,7 +833,7 @@ let dateTouched = false;
   btn.addEventListener("click", () => {
     bar.classList.remove("hidden");
     dateTouched = false; 
-    datePicker.value = "";
+    // datePicker.value は触らない（空にしない）
 // ここ1行追加♡：タップしやすいように少しだけ視線誘導
   　datePicker.scrollIntoView({ block: "center" });
     datePicker.focus();
