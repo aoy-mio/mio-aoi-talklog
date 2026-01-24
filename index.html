@@ -418,6 +418,29 @@ body{
   }
 }
 
+/* わかんないけどカレンダーのやちゅ */
+.dateBar{
+  position: fixed;
+  left: 0; right: 0;
+  bottom: calc(10px + env(safe-area-inset-bottom));
+  margin: 0 10px;
+  padding: 10px 12px;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  background: rgba(255,255,255,.92);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  backdrop-filter: blur(10px);
+  box-shadow: 0 10px 30px rgba(20, 30, 60, 0.10);
+  z-index: 9999;
+}
+.dateBar.hidden{ display:none; }
+.dateBar span{ font-size: 13px; color: var(--muted); white-space: nowrap; }
+.dateBar input{ flex: 1 1 auto; height: 40px; }
+.dateBar button{ height: 40px; padding: 8px 10px; border-radius: 12px; }
+
+
   </style>
 </head>
 <body>
@@ -432,7 +455,7 @@ body{
 </header>
 
 <div class="wrap">
-  <div class="card" id="exportFrame">
+  <div class="card">
     <div class="settings">
       <div class="who">
         <div class="avatar"><img id="leftAvatarImg" alt=""></div>
@@ -458,7 +481,7 @@ body{
         <button id="exportPngBtn" class="primary">画像として保存</button>
         <button id="exportJsonBtn">JSONを書き出し</button>
         <button id="addDayBtn">日付を区切る</button>
-        <button id="addDayPickBtn">日付を選ぶ</button>
+        <button id="addDayPickBtn" type="button">日付を選ぶ</button>
        <button id="addStampSlotLeftBtn">スタンプ枠（みお）</button>
        <button id="addStampSlotRightBtn">スタンプ枠（あおい）</button>
 
@@ -469,9 +492,9 @@ body{
       </div>
     </div>
 
-    <div class="chatArea">
-      <div class="hint">下で文章を書いて、「左で送る」「右で送る」で追加するだけだよ……♡<br><br><br></div>
-      <div class="chat" id="chat"></div>
+     <div class="chatArea" id="exportFrame">
+       <div class="hint">下で文章を書いて…♡</div>
+       <div id="chat" class="chat"></div>
     </div>
   </div>
 </div>
@@ -534,8 +557,8 @@ body{
 
     state.messages.forEach((m)=>{
 
-    // 日付区切り（type === "day"）を描画して次へ
-       if (m.type === "day") {
+    // 日付区切り（type === "dayDivider"）を描画して次へ
+       if (m.type === "dayDivider") {
       const div = document.createElement("div");
       div.className = "day-divider";
       const span = document.createElement("span");
@@ -733,26 +756,43 @@ el("addStampSlotRightBtn").addEventListener("click", ()=>{
     URL.revokeObjectURL(a.href);
   });
 
-  // 画像として保存（PNG）
-  el("exportPngBtn").addEventListener("click", async ()=>{
-    if(typeof html2canvas === "undefined"){
-      alert("画像化の準備がまだみたい……通信環境を確認してね……♡");
-      return;
-    }
-    const frame = el("exportFrame");
-    const canvas = await html2canvas(frame, {
-      backgroundColor: null,
-      scale: window.devicePixelRatio || 2
-    });
-    canvas.toBlob((blob)=>{
-      if(!blob) return;
-      const a = document.createElement("a");
-      a.href = URL.createObjectURL(blob);
-      a.download = "mio_aoi_chat.png";
-      a.click();
-      URL.revokeObjectURL(a.href);
-    }, "image/png");
+ // 画像として保存（PNG）
+el("exportPngBtn").addEventListener("click", async ()=>{
+  if(typeof html2canvas === "undefined"){
+    alert("画像化の準備がまだみたい……通信環境を確認してね……♡");
+    return;
+  }
+
+  const frame = el("exportFrame");
+
+  // フォントと画像の読み込み待ち（ガビガビ/欠け対策）
+  if (document.fonts?.ready) await document.fonts.ready;
+  const imgs = [...frame.querySelectorAll("img")];
+  await Promise.all(imgs.map(img => img.complete ? Promise.resolve()
+    : new Promise(res => { img.onload = img.onerror = res; })
+  ));
+
+  const scale = Math.max(2, window.devicePixelRatio || 2);
+
+  const canvas = await html2canvas(frame, {
+    backgroundColor: null,
+    scale,
+    useCORS: true,
+    width: frame.scrollWidth,
+    height: frame.scrollHeight,
+    windowWidth: frame.scrollWidth,
+    windowHeight: frame.scrollHeight
   });
+
+  canvas.toBlob((blob)=>{
+    if(!blob) return;
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "mio_aoi_chat.png";
+    a.click();
+    URL.revokeObjectURL(a.href);
+  }, "image/png");
+});
 
 // 日付区切りを追加
 el("addDayBtn").addEventListener("click", ()=>{
@@ -764,39 +804,61 @@ el("addDayBtn").addEventListener("click", ()=>{
 
   // messages配列に“区切り”として追加（typeで判別）
   state.messages.push({
-    type: "day",
+    type: "dayDivider",
     text: label,
     ts: Date.now()
   });
 
   save(); 
   render();
+
+ el("dateBar").classList.add("hidden");
 });
 
-  // 日付を選ぶ
-el("addDayPickBtn").addEventListener("click", ()=>{
-  // その場に一時的なdate inputを作って選ばせる
-  const picker = document.createElement("input");
-  picker.type = "date";
-  picker.style.position = "fixed";
-  picker.style.left = "-9999px"; // 見えない場所でOK（iOSはこれでピッカーが出る）
-  document.body.appendChild(picker);
+window.addEventListener("DOMContentLoaded", () => {
+  const btn = el("addDayPickBtn");
+  const bar = el("dateBar");
+  const closeBtn = el("dateBarClose");
+  const datePicker = el("datePicker");
 
-  picker.addEventListener("change", ()=>{
-    if (picker.value) {
-      state.messages.push({
-        type: "day",
-        text: picker.value, // YYYY-MM-DD
-        ts: Date.now()
-      });
-      save();
-      render();
-    }
-    picker.remove();
+  if (!btn || !bar || !closeBtn || !datePicker) {
+    // どれが無いかを出す（デバッグ用）
+    alert("日付UIが見つからないよ……♡\n" +
+      `btn:${!!btn} bar:${!!bar} close:${!!closeBtn} picker:${!!datePicker}`);
+    return;
+  }
+
+  // 「日付を選ぶ」ボタン
+  btn.addEventListener("click", () => {
+    bar.classList.remove("hidden");
+    datePicker.value = "";
+// ここ1行追加♡：タップしやすいように少しだけ視線誘導
+  　datePicker.scrollIntoView({ block: "center" });
+    datePicker.focus();
+    if (datePicker.showPicker) datePicker.showPicker();
   });
 
-  picker.click();
+  // 閉じる
+  closeBtn.addEventListener("click", () => {
+    bar.classList.add("hidden");
+  });
+
+  // 日付を選んだら区切りを追加して閉じる
+  datePicker.addEventListener("change", () => {
+    if (!datePicker.value) return;
+
+    state.messages.push({
+      type: "dayDivider",
+      text: datePicker.value, // YYYY-MM-DD
+      ts: Date.now()
+    });
+
+    save();
+    render();
+    bar.classList.add("hidden");
+  });
 });
+
 
   // 初期化
   load();
@@ -809,5 +871,12 @@ el("addDayPickBtn").addEventListener("click", ()=>{
     });
   }
 </script>
+
+<div id="dateBar" class="dateBar hidden">
+  <span>日付：</span>
+  <input id="datePicker" type="date">
+  <button id="dateBarClose" type="button">閉じる</button>
+</div>
+
 </body>
 </html>
