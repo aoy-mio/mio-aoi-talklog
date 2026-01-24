@@ -38,6 +38,7 @@
       font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Noto Sans JP", "Segoe UI", Roboto, sans-serif;
       background: var(--bg);
       color: var(--text);
+      padding-bottom: calc(120px + env(safe-area-inset-bottom));
     }
 
     header{
@@ -315,6 +316,66 @@ body{
     grid-template-columns: 1fr !important;
   }
 }
+
+/* 指定時刻UI */
+.timePick{
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+  min-width: 160px;
+}
+.timePick label{
+  font-size: 12px;
+  color: var(--muted);
+  padding: 0 2px;
+}
+.timePick input{
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 10px 12px;
+  font-size: 14px;
+  background:#fff;
+}
+
+/* スタンプ枠（B）＝中身が空の吹き出しスペース */
+.stampSlot{
+  width: 150px;      /* あとで好みで */
+  height: 150px;     /* あとで好みで */
+  border-radius: 16px;
+  border: 1px dashed rgba(0,0,0,.14);
+  background: rgba(255,255,255,.55);
+  box-shadow: none;
+}
+
+/* スマホで詰まるなら少し小さく */
+@media (max-width: 520px){
+  .stampSlot{
+    width: 150px;
+    height: 100px;
+  }
+  .timePick{ min-width: 140px; }
+}
+
+/* スタンプ枠は“吹き出し”にしない（背景と同化） */
+.bubble.stampSlot{
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+
+  /* スタンプを置くためのスペースだけ確保 */
+  width: 150px;
+  height: 150px;
+}
+
+/* スマホ幅では少し小さく */
+@media (max-width: 520px){
+  .bubble.stampSlot{
+    width: 130px;
+    height: 130px;
+  }
+}
+
   </style>
 </head>
 <body>
@@ -354,8 +415,10 @@ body{
       <div class="btnrow">
         <button id="exportPngBtn" class="primary">画像として保存</button>
         <button id="exportJsonBtn">JSONを書き出し</button>
-        <button id="importJsonBtn">JSONを読み込み</button>
         <button id="addDayBtn">日付を区切る</button>
+        <button id="addDayPickBtn">日付を選ぶ</button>
+       <button id="addStampSlotLeftBtn">スタンプ枠（みお）</button>
+       <button id="addStampSlotRightBtn">スタンプ枠（あおい）</button>
 
       </div>
       <div class="btnrow">
@@ -365,7 +428,7 @@ body{
     </div>
 
     <div class="chatArea">
-      <div class="hint">下で文章を書いて、「左で送る」「右で送る」で追加するだけだよ……♡</div>
+      <div class="hint">下で文章を書いて、「左で送る」「右で送る」で追加するだけだよ……♡<br><br><br></div>
       <div class="chat" id="chat"></div>
     </div>
   </div>
@@ -374,6 +437,10 @@ body{
 <div class="composer">
   <div class="composerInner">
     <textarea id="input" placeholder="ここに文章を入れて……♡（改行もOK）"></textarea>
+<div class="timePick">
+  <label>指定時刻（任意）</label>
+  <input id="timeOverride" type="time">
+</div>
     <div class="sendCol">
       <button id="sendLeft">左（みお）で送る</button>
       <button id="sendRight" class="primary">右（あおい）で送る</button>
@@ -436,6 +503,38 @@ body{
       return;
     }
 
+ // ★ここに、あおいが貼ってくれた stampSlot ブロックをそのまま貼る
+  if (m.type === "stampSlot") {
+    const row = document.createElement("div");
+    row.className = `msgRow ${m.side}`;
+
+    const avatar = document.createElement("div");
+    avatar.className = "miniAvatar";
+    const img = document.createElement("img");
+    img.src = (m.side === "left") ? state.leftAvatar : state.rightAvatar;
+    avatar.appendChild(img);
+
+    const slot = document.createElement("div");
+    slot.className = "bubble stampSlot";
+
+    const stamp = document.createElement("div");
+    stamp.className = "stamp";
+    stamp.textContent = m.timeLabel || new Date(m.ts).toLocaleTimeString([], {hour:"2-digit", minute:"2-digit"});
+
+    if (m.side === "left") {
+      row.appendChild(avatar);
+      row.appendChild(slot);
+      row.appendChild(stamp);
+    } else {
+      row.appendChild(stamp);
+      row.appendChild(slot);
+      row.appendChild(avatar);
+    }
+
+    chat.appendChild(row);
+    return;
+  }
+
       const row = document.createElement("div");
       row.className = `msgRow ${m.side}`;
 
@@ -452,7 +551,8 @@ body{
 
       const stamp = document.createElement("div");
       stamp.className = "stamp";
-      stamp.textContent = nowStamp(m.ts);
+      stamp.textContent = m.timeLabel || nowStamp(m.ts);
+
 
       if(m.side === "left"){
         row.appendChild(av);
@@ -468,17 +568,42 @@ body{
     });
 
     // 下までスクロール
-    setTimeout(()=>{ window.scrollTo(0, document.body.scrollHeight); }, 0);
+setTimeout(()=>{
+  const chat = el("chat");
+  const last = chat?.lastElementChild;
+  last?.scrollIntoView({ block: "end" });
+  window.scrollBy(0, 40); // ちょい余白ぶん押し下げ♡
+}, 0);
+
   }
 
-  function addMessage(side, text){
+  function getTimeLabel(){
+    const v = (el("timeOverride")?.value || "").trim();
+    if(v) return v; // "HH:MM"
+    const d = new Date();
+    const hh = String(d.getHours()).padStart(2,"0");
+    const mm = String(d.getMinutes()).padStart(2,"0");
+    return `${hh}:${mm}`;
+  }
+
+    function addMessage(side, text){
     const t = (text || "").trim();
     if(!t) return;
-    state.messages.push({ side, text: t, ts: Date.now() });
+
+    state.messages.push({
+      side,
+      text: t,
+      ts: Date.now(),
+      timeLabel: getTimeLabel()
+    });
+
     save();
     render();
     el("input").value = "";
     el("input").focus();
+
+    // 送信したら指定時刻を空に戻す（任意だけどおすすめ♡）
+    if(el("timeOverride")) el("timeOverride").value = "";
   }
 
   async function fileToDataURL(file){
@@ -534,6 +659,28 @@ body{
     location.reload();
   });
 
+el("addStampSlotLeftBtn").addEventListener("click", ()=>{
+  state.messages.push({
+    type: "stampSlot",
+    side: "left",
+    ts: Date.now(),
+    timeLabel: getTimeLabel()
+  });
+  if(el("timeOverride")) el("timeOverride").value = "";
+  save(); render();
+});
+
+el("addStampSlotRightBtn").addEventListener("click", ()=>{
+  state.messages.push({
+    type: "stampSlot",
+    side: "right",
+    ts: Date.now(),
+    timeLabel: getTimeLabel()
+  });
+  if(el("timeOverride")) el("timeOverride").value = "";
+  save(); render();
+});
+
   // JSON書き出し（バックアップ）
   el("exportJsonBtn").addEventListener("click", ()=>{
     const blob = new Blob([JSON.stringify(state, null, 2)], {type:"application/json"});
@@ -542,22 +689,6 @@ body{
     a.download = "mio_aoi_chat_backup.json";
     a.click();
     URL.revokeObjectURL(a.href);
-  });
-
-  // JSON読み込み（復元）
-  el("importJsonBtn").addEventListener("click", ()=>{
-    const input = document.createElement("input");
-    input.type = "file";
-    input.accept = "application/json";
-    input.onchange = async ()=>{
-      const f = input.files?.[0];
-      if(!f) return;
-      const text = await f.text();
-      const obj = JSON.parse(text);
-      Object.assign(state, obj);
-      save(); render();
-    };
-    input.click();
   });
 
   // 画像として保存（PNG）
@@ -598,6 +729,31 @@ el("addDayBtn").addEventListener("click", ()=>{
 
   save(); 
   render();
+});
+
+  // 日付を選ぶ
+el("addDayPickBtn").addEventListener("click", ()=>{
+  // その場に一時的なdate inputを作って選ばせる
+  const picker = document.createElement("input");
+  picker.type = "date";
+  picker.style.position = "fixed";
+  picker.style.left = "-9999px"; // 見えない場所でOK（iOSはこれでピッカーが出る）
+  document.body.appendChild(picker);
+
+  picker.addEventListener("change", ()=>{
+    if (picker.value) {
+      state.messages.push({
+        type: "day",
+        text: picker.value, // YYYY-MM-DD
+        ts: Date.now()
+      });
+      save();
+      render();
+    }
+    picker.remove();
+  });
+
+  picker.click();
 });
 
   // 初期化
