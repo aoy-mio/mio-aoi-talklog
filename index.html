@@ -556,8 +556,14 @@ body{
     rightName: "あおい",
     leftAvatar: "",
     rightAvatar: "",
+    editingId: null, // いま編集中のメッセージID（なければnull）
     messages: [] // {side:"left"|"right", text:"", ts:number}
   };
+
+function uid(){
+  if (crypto && crypto.randomUUID) return crypto.randomUUID();
+  return "m_" + Date.now().toString(36) + "_" + Math.random().toString(36).slice(2,10);
+}
 
   function nowStamp(ts){
     const d = new Date(ts);
@@ -576,8 +582,15 @@ body{
     try{
       const obj = JSON.parse(raw);
       Object.assign(state, obj);
-    }catch(e){}
-  }
+
+    // ★移行：古いmessagesに id が無ければ付ける
+    if(Array.isArray(state.messages)){
+      state.messages.forEach(m=>{
+        if(!m.id) m.id = uid();
+      });
+    }
+  }catch(e){}
+}
 
   function render(){
     el("leftName").value = state.leftName || "みお";
@@ -737,15 +750,22 @@ window.addEventListener("DOMContentLoaded", ()=>{
   el("sheetCancel").addEventListener("click", closeEditSheet);
 
   el("sheetEdit").addEventListener("click", ()=>{
-    const i = state.messages.findIndex(m => m.id === sheetTargetId);
-    if(i < 0) return closeEditSheet();
-    const m = state.messages[i];
-    const next = prompt("新しい文章を入れてね♡", m.text || "");
-    if(next === null) return; // キャンセル
-    m.text = String(next);
-    save(); render();
-    closeEditSheet();
-  });
+  const id = sheetTargetId;
+  if(!id) return closeEditSheet();
+
+  const m = state.messages.find(x => x.id === id);
+  if(!m) return closeEditSheet();
+
+  // dayDivider / stampSlot は編集しない
+  if(m.type && m.type !== "text") return closeEditSheet();
+
+  state.editingId = id;
+  el("input").value = m.text || "";
+  el("input").focus();
+
+  closeEditSheet();
+});
+
 
   el("sheetDelete").addEventListener("click", ()=>{
     const i = state.messages.findIndex(m => m.id === sheetTargetId);
@@ -772,28 +792,22 @@ window.addEventListener("DOMContentLoaded", ()=>{
 });
 
 function openEditMenu(id){
-  const i = state.messages.findIndex(m => m.id === id);
-  if(i < 0) return;
+  // ここでは “編集シートを開くだけ” にする
+  openEditSheet(id);
+}
 
-  const m = state.messages[i];
+function startEdit(id){
+  const m = state.messages.find(x => x.id === id);
+  if(!m) return;
+  if (m.type && m.type !== "text") return; // dayDivider や stampSlot は編集対象外にする
 
-  const action = prompt("edit なら e / delete なら d を入れてね♡", "e");
-  if(!action) return;
+  state.editingId = id;
 
-  if(action.toLowerCase() === "e"){
-    const next = prompt("新しい文章を入れてね♡", m.text || "");
-    if(next === null) return;
-    m.text = String(next);
-    save(); render();
-    return;
-  }
+  // 入力欄に本文を入れる
+  el("input").value = m.text || "";
+  el("input").focus();
 
-  if(action.toLowerCase() === "d"){
-    if(confirm("ほんとに削除する……？")){
-      state.messages.splice(i, 1);
-      save(); render();
-    }
-  }
+  updateEditUI();
 }
 
   function getTimeLabel(){
@@ -806,21 +820,42 @@ function openEditMenu(id){
   }
 
     function addMessage(side, text){
-    const t = (text || "").trim();
-    if(!t) return;
+  const t = (text || "").trim();
+  if(!t) return;
 
-    state.messages.push({
-    id: crypto.randomUUID(),
-      side,
-      text: t,
-      ts: Date.now(),
-      timeLabel: getTimeLabel()
-    });
+// ★編集モードなら“追加”じゃなく“更新”
+  if(state.editingId){
+    const i = state.messages.findIndex(m => m.id === state.editingId);
+    if(i >= 0){
+      state.messages[i].text = t;
+      state.messages[i].side = side; // 送信側を変えたら左右も反映したいなら♡
+      // 時刻は「編集では変えない」ならこのまま。変えるなら下を有効に：
+      // state.messages[i].timeLabel = getTimeLabel();
+      save(); render();
+      state.editingId = null;
+      el("input").value = "";
+      el("input").focus();
+      if(el("timeOverride")) el("timeOverride").value = "";
+      return;
+    }else{
+      // 万一見つからなければ編集モード解除
+      state.editingId = null;
+    }
+  }
 
-    save();
-    render();
-    el("input").value = "";
-    el("input").focus();
+  // 通常は追加
+  state.messages.push({
+    id: uid(),
+    side,
+    text: t,
+    ts: Date.now(),
+    timeLabel: getTimeLabel()
+  });
+
+  save();
+  render();
+  el("input").value = "";
+  el("input").focus();
 
     // 送信したら指定時刻を空に戻す（任意だけどおすすめ♡）
     if(el("timeOverride")) el("timeOverride").value = "";
@@ -1007,6 +1042,24 @@ datePicker.addEventListener("input", () => {
   datePicker.addEventListener("change", () => {
     if (!datePicker.value) return;
 
+// シート：編集（まずは最小で♡）
+el("sheetEdit").addEventListener("click", ()=>{
+  const id = sheetTargetId;
+  if(!id) return;
+
+  const m = state.messages.find(x => x.id === id);
+  if(!m) return;
+
+  // dayDivider / stampSlot などは編集しない
+  if(m.type && m.type !== "text") return;
+
+  state.editingId = id;
+  el("input").value = m.text || "";
+  el("input").focus();
+
+  closeEditSheet();
+});
+
  // ★スマホ対策：勝手に確定されるchangeを弾く
   if (!dateTouched) return;
 
@@ -1023,17 +1076,15 @@ datePicker.addEventListener("input", () => {
   });
 });
 
-
   // 初期化
   load();
   render();
-</script>
-<script>
-  if ("serviceWorker" in navigator) {
-    window.addEventListener("load", () => {
-      navigator.serviceWorker.register("./sw.js");
-    });
-  }
+
+if ("serviceWorker" in navigator && (location.protocol === "http:" || location.protocol === "https:")) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("./sw.js");
+  });
+}
 </script>
 
 <div id="dateBar" class="dateBar hidden">
